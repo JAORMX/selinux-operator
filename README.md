@@ -19,3 +19,4 @@ TODO
 
 * Create a validating webhook so that folks can only create pods with certain
   SELinux policies on namespaces that allow so.
+* Delete the ConfigMap once the SelinuxPolicy is deleted.
