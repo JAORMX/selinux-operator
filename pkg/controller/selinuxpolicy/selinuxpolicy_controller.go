@@ -91,6 +91,7 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("selinux policy instance not found", "Name", instance.Name, "Namespace", instance.Namespace)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

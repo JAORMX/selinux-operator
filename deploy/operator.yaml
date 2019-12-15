@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: selinux-operator
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       name: selinux-operator
@@ -15,8 +15,7 @@ spec:
       serviceAccountName: selinux-operator
       containers:
         - name: selinux-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: "image-registry.openshift-image-registry.svc:5000/selinux-operator/selinux-operator:latest"
           command:
           - selinux-operator
           imagePullPolicy: Always

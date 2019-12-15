@@ -7,8 +7,6 @@ import (
 	"os"
 	"runtime"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/rest"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -18,6 +16,8 @@ import (
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -26,6 +26,7 @@ import (
 	"github.com/JAORMX/selinux-operator/pkg/apis"
 	"github.com/JAORMX/selinux-operator/pkg/controller"
 	"github.com/JAORMX/selinux-operator/pkg/controller/utils"
+	"github.com/JAORMX/selinux-operator/pkg/webhook"
 	"github.com/JAORMX/selinux-operator/version"
 )
 
@@ -103,6 +104,18 @@ func main() {
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup all webhooks
+	if err := webhook.AddToManager(mgr); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup all webhooks
+	if err = apis.AddWebhooksToManager(mgr); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
