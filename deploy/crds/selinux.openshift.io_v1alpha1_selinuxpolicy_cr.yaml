@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   policy: |
-    (block errorlogger-default
+    (block errorlogger
         (blockinherit container)
         (blockinherit net_container)
         (blockinherit home_container)
