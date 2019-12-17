@@ -19,7 +19,7 @@ webhooks:
     scope:       "Namespaced"
   clientConfig:
     service:
-      namespace: "selinux-operator"
+      namespace: "openshift-selinux-operator"
       name: "selinux-namespace-webhook"
       path: "/validate-selinuxpolicy-namespace"
       port: 8443

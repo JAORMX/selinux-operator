@@ -34,7 +34,7 @@ SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./
 # Kubernetes variables
 # ====================
 KUBECONFIG?=$(HOME)/.kube/config
-export NAMESPACE?=selinux-operator
+export NAMESPACE?=openshift-selinux-operator
 
 # Operator-sdk variables
 # ======================

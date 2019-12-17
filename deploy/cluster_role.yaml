@@ -3,13 +3,15 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: selinux-operator
-  namespace: selinux-operator
+  namespace: openshift-selinux-operator
 rules:
 - apiGroups:
   - ""
   resources:
   - pods
   - configmaps
+  - pods
+  - nodes
   verbs:
   - get
   - list

@@ -29,7 +29,7 @@ spec:
       serviceAccountName: selinux-operator
       containers:
         - name: selinux-operator
-          image: "image-registry.openshift-image-registry.svc:5000/selinux-operator/selinux-operator:latest"
+          image: "image-registry.openshift-image-registry.svc:5000/openshift-selinux-operator/selinux-operator:latest"
           command:
           - selinux-operator
           imagePullPolicy: Always

@@ -113,12 +113,12 @@ func newConfigMapForPolicy(cr *selinuxv1alpha1.SelinuxPolicy) *corev1.ConfigMap 
 
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.GetPolicyConfigMapName(cr),
+			Name:      utils.GetPolicyConfigMapName(cr.Name, cr.Namespace),
 			Namespace: utils.GetOperatorNamespace(),
 			Labels:    labels,
 		},
 		Data: map[string]string{
-			utils.GetPolicyName(cr) + ".cil": cr.Spec.Policy,
+			utils.GetPolicyName(cr.Name, cr.Namespace) + ".cil": cr.Spec.Policy,
 		},
 	}
 }

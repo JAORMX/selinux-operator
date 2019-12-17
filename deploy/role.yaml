@@ -3,7 +3,7 @@ kind: Role
 metadata:
   creationTimestamp: null
   name: selinux-operator
-  namespace: selinux-operator
+  namespace: openshift-selinux-operator
 rules:
 - apiGroups:
   - ""
@@ -15,6 +15,7 @@ rules:
   - persistentvolumeclaims
   - events
   - configmaps
+  - configmaps/finalizers
   - secrets
   verbs:
   - create
@@ -67,3 +68,11 @@ rules:
   - deployments
   verbs:
   - get
+- apiGroups:                  # Needed for using privileged containers
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - privileged
+  verbs:
+  - use

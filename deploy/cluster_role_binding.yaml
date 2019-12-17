@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: selinux-operator
-  namespace: selinux-operator
+  namespace: openshift-selinux-operator
 roleRef:
   kind: ClusterRole
   name: selinux-operator

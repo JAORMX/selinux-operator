@@ -1,7 +1,7 @@
 apiVersion: selinux.openshift.io/v1alpha1
 kind: SelinuxPolicy
 metadata:
-  name: example-selinuxpolicy
+  name: errorlogger
   namespace: default
 spec:
   policy: |
