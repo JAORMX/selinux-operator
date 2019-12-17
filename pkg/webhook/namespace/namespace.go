@@ -90,11 +90,9 @@ func (v *ValidateNamespace) Handle(ctx context.Context, req webhook.AdmissionReq
 	}
 
 	if req.Operation == admissionv1beta1.Create || req.Operation == admissionv1beta1.Update {
-		reqLogger.Info("Validating that SELinux policy exists in namespace")
 		return v.validateSelinuxNamespace(ctx, reqLogger, &pod)
 	}
 
-	reqLogger.Info("TEMP: Skipping")
 	return webhook.Allowed("")
 }
 
@@ -159,7 +157,8 @@ func (v *ValidateNamespace) isSelinuxPolicyInNamespace(ctx context.Context, log 
 	instance := &selinuxv1alpha1.SelinuxPolicy{}
 	err := v.client.Get(ctx, sepolicyNsName, instance)
 	if errors.IsNotFound(err) {
-		return false, "SelinuxPolicy is not in namespace", nil
+		msg := fmt.Sprintf("SelinuxPolicy '%s' is not in namespace '%s'", policy, ns)
+		return false, msg, nil
 	}
 	if err != nil {
 		return false, "", err
