@@ -114,12 +114,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup all webhooks
-	if err = apis.AddWebhooksToManager(mgr); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
 	if err = serveCRMetrics(cfg); err != nil {
 		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	}

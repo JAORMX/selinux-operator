@@ -67,15 +67,3 @@ rules:
   - deployments
   verbs:
   - get
-- apiGroups:
-  - selinux.openshift.io
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

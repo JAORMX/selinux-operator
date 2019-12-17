@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +26,8 @@ import (
 )
 
 const (
+	webhookPort = 8443
+	webhookHost = "0.0.0.0"
 	webhookPath = "/validate-selinuxpolicy-namespace"
 )
 
@@ -41,13 +43,19 @@ type ValidateNamespace struct {
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	// Create a webhook server.
-	hookServer := mgr.GetWebhookServer()
+	//hookServer := mgr.GetWebhookServer()
+	hookServer := &webhook.Server{
+		Host:    webhookHost,
+		Port:    webhookPort,
+		CertDir: "/tmp/k8s-webhook-server/serving-certs",
+	}
 	if err := mgr.Add(hookServer); err != nil {
 		return err
 	}
 
 	validator := &ValidateNamespace{
 		client: mgr.GetClient(),
+
 		codecs: serializer.NewCodecFactory(mgr.GetScheme()),
 	}
 
@@ -81,7 +89,7 @@ func (v *ValidateNamespace) Handle(ctx context.Context, req webhook.AdmissionReq
 		return webhook.Errored(500, fmt.Errorf("got a request but couldn't decode the pod"))
 	}
 
-	if req.Operation == v1beta1.Create || req.Operation == v1beta1.Update {
+	if req.Operation == admissionv1beta1.Create || req.Operation == admissionv1beta1.Update {
 		reqLogger.Info("Validating that SELinux policy exists in namespace")
 		return v.validateSelinuxNamespace(ctx, reqLogger, &pod)
 	}
@@ -93,18 +101,46 @@ func (v *ValidateNamespace) Handle(ctx context.Context, req webhook.AdmissionReq
 func (v *ValidateNamespace) validateSelinuxNamespace(ctx context.Context, log logr.Logger, pod *corev1.Pod) webhook.AdmissionResponse {
 	secContext := pod.Spec.SecurityContext
 	if secContext != nil {
-		selinuxOpts := secContext.SELinuxOptions
-		if selinuxOpts != nil {
-			allowed, msg, err := v.isAllowedSelinuxPolicy(ctx, log, selinuxOpts, pod.Namespace)
-			if err != nil {
-				return webhook.Errored(500, err)
+		if valid, response := v.isSelinuxOptionsValidOrNil(ctx, log, secContext.SELinuxOptions, pod.Namespace); !valid {
+			return response
+		}
+	}
+
+	for _, container := range pod.Spec.InitContainers {
+		if container.SecurityContext != nil {
+			if valid, response := v.isSelinuxOptionsValidOrNil(ctx, log, container.SecurityContext.SELinuxOptions, pod.Namespace); !valid {
+				return response
 			}
-			if !allowed {
-				return webhook.Denied(msg)
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if container.SecurityContext != nil {
+			if valid, response := v.isSelinuxOptionsValidOrNil(ctx, log, container.SecurityContext.SELinuxOptions, pod.Namespace); !valid {
+				return response
+			}
+		}
+	}
+	for _, container := range pod.Spec.EphemeralContainers {
+		if container.SecurityContext != nil {
+			if valid, response := v.isSelinuxOptionsValidOrNil(ctx, log, container.SecurityContext.SELinuxOptions, pod.Namespace); !valid {
+				return response
 			}
 		}
 	}
 	return webhook.Allowed("")
+}
+
+func (v *ValidateNamespace) isSelinuxOptionsValidOrNil(ctx context.Context, log logr.Logger, selinuxOpts *corev1.SELinuxOptions, ns string) (bool, webhook.AdmissionResponse) {
+	if selinuxOpts != nil {
+		allowed, msg, err := v.isAllowedSelinuxPolicy(ctx, log, selinuxOpts, ns)
+		if err != nil {
+			return false, webhook.Errored(500, err)
+		}
+		if !allowed {
+			return false, webhook.Denied(msg)
+		}
+	}
+	return true, webhook.AdmissionResponse{}
 }
 
 func (v *ValidateNamespace) isAllowedSelinuxPolicy(ctx context.Context, log logr.Logger, selinuxOpts *corev1.SELinuxOptions, ns string) (bool, string, error) {
