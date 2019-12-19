@@ -7,7 +7,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// GetPolicyName gets the policy module name in the format that
+// we're expecting for parsing.
 func GetPolicyName(name, ns string) string {
+	return name + "_" + ns
+}
+
+// GetPolicyK8sName gets the policy name in a format that's OK for k8s names.
+func GetPolicyK8sName(name, ns string) string {
 	return name + "-" + ns
 }
 
@@ -20,7 +27,7 @@ func GetInstallerPodName(name, ns string, node *corev1.Node) string {
 	// policy-installer
 	namePrefix := "p-i"
 	parsedNodeName := parseNodeName(node.Name)
-	podname := namePrefix + "-" + GetPolicyName(name, ns) + "-" + parsedNodeName
+	podname := namePrefix + "-" + GetPolicyK8sName(name, ns) + "-" + parsedNodeName
 
 	// K8s has a 63 char name limit for pods
 	if len(podname) > 62 {
@@ -31,7 +38,7 @@ func GetInstallerPodName(name, ns string, node *corev1.Node) string {
 
 func GetPolicyConfigMapName(name, ns string) string {
 	namePrefix := "policy-for"
-	return namePrefix + "-" + GetPolicyName(name, ns)
+	return namePrefix + "-" + GetPolicyK8sName(name, ns)
 }
 
 // GetOperatorNamespace gets the namespace that the operator is currently running on.

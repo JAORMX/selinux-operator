@@ -2,6 +2,7 @@ package configmap
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -157,11 +158,19 @@ func newPodForPolicy(name, ns string, node *corev1.Node) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
+				// This container needs to keep running so we can run the uninstall script.
 				corev1.Container{
-					Name:    utils.GetInstallerPodName(name, ns, node),
+					Name:    "policy-installer",
 					Image:   "image-registry.openshift-image-registry.svc:5000/openshift-selinux-operator/udica:latest",
 					Command: []string{"/bin/sh"},
-					Args:    []string{"-c", "semodule -vi /tmp/policy/*.cil /usr/share/udica/templates/*cil"},
+					Args:    []string{"-c", "semodule -vi /tmp/policy/*.cil /usr/share/udica/templates/*cil; while true; do sleep 30; done;"},
+					Lifecycle: &corev1.Lifecycle{
+						PreStop: &corev1.Handler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"/bin/sh", "-c", fmt.Sprintf("semodule -vr '%s'", utils.GetPolicyName(name, ns))},
+							},
+						},
+					},
 					SecurityContext: &corev1.SecurityContext{
 						Privileged: &trueVal,
 					},
