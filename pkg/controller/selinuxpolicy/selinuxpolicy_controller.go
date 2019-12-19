@@ -1,7 +1,10 @@
 package selinuxpolicy
 
 import (
+	"bytes"
 	"context"
+	"strings"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +25,12 @@ import (
 
 var log = logf.Log.WithName("controller_selinuxpolicy")
 
+// The underscore is not a valid character in a pod, so we can
+// safely use it as a separator.
+const policyWrapper = `(block {{.Name}}_{{.Namespace}}
+    {{.Policy}}
+)`
+
 // Add creates a new SelinuxPolicy Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -30,7 +39,9 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileSelinuxPolicy{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	// Create template to wrap policies
+	tmpl, _ := template.New("policyWrapper").Parse(policyWrapper)
+	return &ReconcileSelinuxPolicy{client: mgr.GetClient(), scheme: mgr.GetScheme(), policyTemplate: tmpl}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -57,8 +68,9 @@ var _ reconcile.Reconciler = &ReconcileSelinuxPolicy{}
 type ReconcileSelinuxPolicy struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client         client.Client
+	scheme         *runtime.Scheme
+	policyTemplate *template.Template
 }
 
 // Reconcile reads that state of the cluster for a SelinuxPolicy object and makes changes based on the state read
@@ -83,7 +95,7 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Define a new ConfigMap object
-	cm := newConfigMapForPolicy(instance)
+	cm := r.newConfigMapForPolicy(instance)
 
 	// Check if this cm already exists
 	foundCM := &corev1.ConfigMap{}
@@ -105,7 +117,7 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 	return reconcile.Result{}, nil
 }
 
-func newConfigMapForPolicy(cr *selinuxv1alpha1.SelinuxPolicy) *corev1.ConfigMap {
+func (r *ReconcileSelinuxPolicy) newConfigMapForPolicy(cr *selinuxv1alpha1.SelinuxPolicy) *corev1.ConfigMap {
 	labels := map[string]string{
 		"appName":      cr.Name,
 		"appNamespace": cr.Namespace,
@@ -118,7 +130,27 @@ func newConfigMapForPolicy(cr *selinuxv1alpha1.SelinuxPolicy) *corev1.ConfigMap 
 			Labels:    labels,
 		},
 		Data: map[string]string{
-			utils.GetPolicyName(cr.Name, cr.Namespace) + ".cil": cr.Spec.Policy,
+			utils.GetPolicyName(cr.Name, cr.Namespace) + ".cil": r.wrapPolicy(cr),
 		},
 	}
+}
+
+func (r *ReconcileSelinuxPolicy) wrapPolicy(cr *selinuxv1alpha1.SelinuxPolicy) string {
+	parsedpolicy := strings.TrimSpace(cr.Spec.Policy)
+	// ident
+	parsedpolicy = strings.ReplaceAll(parsedpolicy, "\n", "\n    ")
+	// replace empty lines
+	parsedpolicy = strings.TrimSpace(parsedpolicy)
+	data := struct {
+		Name      string
+		Namespace string
+		Policy    string
+	}{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
+		Policy:    parsedpolicy,
+	}
+	var result bytes.Buffer
+	r.policyTemplate.Execute(&result, data)
+	return result.String()
 }

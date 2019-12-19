@@ -13,7 +13,7 @@ spec:
       seLinuxOptions:
         #user: system_u
         #role: system_r
-        type: errorlogger.process
+        type: errorlogger_default.process
     volumeMounts:
     - name: varlog
       mountPath: /var/log

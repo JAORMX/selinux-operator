@@ -153,7 +153,18 @@ func (v *ValidateNamespace) isAllowedSelinuxPolicy(ctx context.Context, log logr
 }
 
 func (v *ValidateNamespace) isSelinuxPolicyInNamespace(ctx context.Context, log logr.Logger, policy, ns string) (bool, string, error) {
-	sepolicyNsName := types.NamespacedName{Name: policy, Namespace: ns}
+	policyPieces := strings.Split(policy, "_")
+	if len(policyPieces) != 2 {
+		msg := fmt.Sprintf("SELinux policy type specification '%s.process' is malformed, the format should be <name>_<namspace>.process", policy)
+		return false, msg, nil
+	}
+	policyName := policyPieces[0]
+	policyNamespace := policyPieces[1]
+	if policyNamespace != ns {
+		msg := fmt.Sprintf("SELinux policy type name not allowed. Cannot access a policy that's not in namespace '%s'", ns)
+		return false, msg, nil
+	}
+	sepolicyNsName := types.NamespacedName{Name: policyName, Namespace: ns}
 	instance := &selinuxv1alpha1.SelinuxPolicy{}
 	err := v.client.Get(ctx, sepolicyNsName, instance)
 	if errors.IsNotFound(err) {
