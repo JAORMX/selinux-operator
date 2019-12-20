@@ -31,6 +31,8 @@ spec:
         spec:
           description: SelinuxPolicySpec defines the desired state of SelinuxPolicy
           properties:
+            apply:
+              type: boolean
             policy:
               type: string
           type: object

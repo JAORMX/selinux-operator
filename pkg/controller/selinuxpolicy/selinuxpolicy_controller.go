@@ -89,6 +89,12 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, utils.IgnoreNotFound(err)
 	}
 
+	// If "apply" is false, no need to do anything, let the deployer
+	// review it.
+	if !instance.Spec.Apply {
+		return reconcile.Result{}, nil
+	}
+
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted
 		if !utils.SliceContainsString(instance.ObjectMeta.Finalizers, selinuxFinalizerName) {

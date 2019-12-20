@@ -6,6 +6,7 @@ import (
 
 // SelinuxPolicySpec defines the desired state of SelinuxPolicy
 type SelinuxPolicySpec struct {
+	Apply  bool   `json:"apply,omitempty"`
 	Policy string `json:"policy,omitempty"`
 }
 
