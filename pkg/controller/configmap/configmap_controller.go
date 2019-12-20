@@ -80,7 +80,6 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling ConfigMap")
 
 	// Fetch the ConfigMap instance
 	cminstance := &corev1.ConfigMap{}
@@ -96,6 +95,8 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 	if !ok {
 		return reconcile.Result{}, nil
 	}
+
+	reqLogger.Info("Reconciling ConfigMap")
 
 	nodesList := &corev1.NodeList{}
 	err = r.client.List(context.TODO(), nodesList)
