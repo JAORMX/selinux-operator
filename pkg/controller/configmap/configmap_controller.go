@@ -86,14 +86,7 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 	cminstance := &corev1.ConfigMap{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, cminstance)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, utils.IgnoreNotFound(err)
 	}
 	policyName, ok := cminstance.Labels["appName"]
 	if !ok {
@@ -119,9 +112,8 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-			err = r.client.Create(context.TODO(), pod)
-			if err != nil {
-				return reconcile.Result{}, err
+			if err = r.client.Create(context.TODO(), pod); err != nil {
+				return reconcile.Result{}, utils.IgnoreAlreadyExists(err)
 			}
 
 			// Pod created successfully - don't requeue
