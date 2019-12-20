@@ -149,7 +149,7 @@ func newPodForPolicy(name, ns string, node *corev1.Node) *corev1.Pod {
 				// This container needs to keep running so we can run the uninstall script.
 				corev1.Container{
 					Name:    "policy-installer",
-					Image:   "image-registry.openshift-image-registry.svc:5000/openshift-selinux-operator/udica:latest",
+					Image:   "quay.io/jaosorior/udica",
 					Command: []string{"/bin/sh"},
 					Args:    []string{"-c", "semodule -vi /tmp/policy/*.cil /usr/share/udica/templates/*cil; while true; do sleep 30; done;"},
 					Lifecycle: &corev1.Lifecycle{
