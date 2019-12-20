@@ -16,7 +16,6 @@ ENV OPERATOR=/usr/local/bin/selinux-operator \
     USER_NAME=selinux-operator
 
 # install operator binary
-COPY build/_output/bin/selinux-operator ${OPERATOR}
 COPY --from=builder /tmp/selinux-operator ${OPERATOR}
 
 COPY build/bin /usr/local/bin
