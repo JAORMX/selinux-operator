@@ -20,11 +20,10 @@ TAG?=latest
 # Build variables
 # ===============
 CURPATH=$(PWD)
-TARGET_DIR=$(CURPATH)/build/_output
+TARGET_DIR?=$(CURPATH)/build/_output/bin
 GO=go
 GOBUILD=$(GO) build
-BUILD_GOPATH=$(TARGET_DIR):$(CURPATH)/cmd
-TARGET=$(TARGET_DIR)/bin/$(APP_NAME)
+TARGET=$(TARGET_DIR)/$(APP_NAME)
 MAIN_PKG=cmd/manager/main.go
 PKGS=$(shell go list ./... | grep -v -E '/vendor/|/test|/examples')
 
