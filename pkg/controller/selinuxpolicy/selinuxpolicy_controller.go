@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,8 @@ var log = logf.Log.WithName("controller_selinuxpolicy")
 const policyWrapper = `(block {{.Name}}_{{.Namespace}}
     {{.Policy}}
 )`
+
+const selinuxFinalizerName = "selinuxpolicy.finalizers.selinuxpolicy.openshift.io"
 
 // Add creates a new SelinuxPolicy Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -83,28 +86,58 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 	instance := &selinuxv1alpha1.SelinuxPolicy{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Info("selinux policy instance not found", "Name", instance.Name, "Namespace", instance.Namespace)
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, utils.IgnoreNotFound(err)
 	}
 
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted
+		if !utils.SliceContainsString(instance.ObjectMeta.Finalizers, selinuxFinalizerName) {
+			return r.addFinalizer(instance, reqLogger)
+		}
+		return r.reconcileConfigMap(instance, reqLogger)
+	} else {
+		// The object is being deleted
+		if utils.SliceContainsString(instance.ObjectMeta.Finalizers, selinuxFinalizerName) {
+			if err := r.deleteConfigMap(instance, reqLogger); err != nil {
+				return reconcile.Result{}, err
+			}
+
+			return r.removeFinalizer(instance, reqLogger)
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSelinuxPolicy) addFinalizer(sp *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) (reconcile.Result, error) {
+	spcopy := sp.DeepCopy()
+	spcopy.ObjectMeta.Finalizers = append(spcopy.ObjectMeta.Finalizers, selinuxFinalizerName)
+	if err := r.client.Update(context.Background(), spcopy); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSelinuxPolicy) removeFinalizer(sp *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) (reconcile.Result, error) {
+	spcopy := sp.DeepCopy()
+	spcopy.ObjectMeta.Finalizers = utils.RemoveStringFromSlice(spcopy.ObjectMeta.Finalizers, selinuxFinalizerName)
+	if err := r.client.Update(context.Background(), spcopy); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSelinuxPolicy) reconcileConfigMap(instance *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) (reconcile.Result, error) {
 	// Define a new ConfigMap object
 	cm := r.newConfigMapForPolicy(instance)
 
 	// Check if this cm already exists
 	foundCM := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, foundCM)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, foundCM)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", cm.Namespace, "ConfigMap.Name", cm.Name)
-		err = r.client.Create(context.TODO(), cm)
-		if err != nil {
-			return reconcile.Result{}, err
+		logger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", cm.Namespace, "ConfigMap.Name", cm.Name)
+		if err = r.client.Create(context.TODO(), cm); err != nil {
+			return reconcile.Result{}, utils.IgnoreAlreadyExists(err)
 		}
 
 		// CM created successfully - don't requeue
@@ -112,9 +145,15 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info("Reconcile: ConfigMap already exists", "ConfigMap.Namespace", foundCM.Namespace, "ConfigMap.Name", foundCM.Name)
-
+	logger.Info("Reconcile: ConfigMap already exists", "ConfigMap.Namespace", foundCM.Namespace, "ConfigMap.Name", foundCM.Name)
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSelinuxPolicy) deleteConfigMap(instance *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) error {
+	// Define a new ConfigMap object
+	cm := r.newConfigMapForPolicy(instance)
+	logger.Info("Deleting ConfigMap", "ConfigMap.Namespace", cm.Namespace, "ConfigMap.Name", cm.Name)
+	return utils.IgnoreNotFound(r.client.Delete(context.TODO(), cm))
 }
 
 func (r *ReconcileSelinuxPolicy) newConfigMapForPolicy(cr *selinuxv1alpha1.SelinuxPolicy) *corev1.ConfigMap {
