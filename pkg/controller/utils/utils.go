@@ -14,6 +14,12 @@ func GetPolicyName(name, ns string) string {
 	return name + "_" + ns
 }
 
+// GetPolicyUsage is the representation of how a pod will call this
+// SELinux module
+func GetPolicyUsage(name, ns string) string {
+	return GetPolicyName(name, ns) + ".process"
+}
+
 // GetPolicyK8sName gets the policy name in a format that's OK for k8s names.
 func GetPolicyK8sName(name, ns string) string {
 	return name + "-" + ns

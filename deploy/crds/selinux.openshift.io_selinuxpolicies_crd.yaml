@@ -39,7 +39,9 @@ spec:
         status:
           description: SelinuxPolicyStatus defines the observed state of SelinuxPolicy
           properties:
-            installation:
+            usage:
+              description: Represents the string that the SelinuxPolicy object can
+                be referenced as in a pod seLinuxOptions section.
               type: string
           type: object
       type: object

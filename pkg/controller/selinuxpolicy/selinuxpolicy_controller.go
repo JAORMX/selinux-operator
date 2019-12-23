@@ -95,6 +95,12 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
+	if instance.Status.Usage != utils.GetPolicyUsage(instance.Name, instance.Namespace) {
+		if err = r.addUsageStatus(instance, reqLogger); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted
 		if !utils.SliceContainsString(instance.ObjectMeta.Finalizers, selinuxFinalizerName) {
@@ -122,6 +128,15 @@ func (r *ReconcileSelinuxPolicy) addFinalizer(sp *selinuxv1alpha1.SelinuxPolicy,
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSelinuxPolicy) addUsageStatus(sp *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) error {
+	spcopy := sp.DeepCopy()
+	spcopy.Status.Usage = utils.GetPolicyUsage(spcopy.Name, spcopy.Namespace)
+	if err := r.client.Status().Update(context.Background(), spcopy); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ReconcileSelinuxPolicy) removeFinalizer(sp *selinuxv1alpha1.SelinuxPolicy, logger logr.Logger) (reconcile.Result, error) {

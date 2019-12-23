@@ -12,7 +12,9 @@ type SelinuxPolicySpec struct {
 
 // SelinuxPolicyStatus defines the observed state of SelinuxPolicy
 type SelinuxPolicyStatus struct {
-	Installation string `json:"installation,omitempty"`
+	// Represents the string that the SelinuxPolicy object can be
+	// referenced as in a pod seLinuxOptions section.
+	Usage string `json:"usage,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
