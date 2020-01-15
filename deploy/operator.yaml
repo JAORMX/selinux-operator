@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: selinux-namespace-webhook
+  namespace: openshift-selinux-operator
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: selinux-operator-webhook-tls
 spec:
@@ -15,6 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: selinux-operator
+  namespace: openshift-selinux-operator
 spec:
   replicas: 3
   selector:
