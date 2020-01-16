@@ -43,3 +43,11 @@ Deploy webhook
 ```
 ./scripts/create-webhookconfig.sh
 ```
+
+Note
+----
+
+- The operator and the CRD are fairly generic, so they could be used in other
+  Kubernetes distributions (not only OpenShift). However, the webhook script
+  relies on other operators that exist in OpenShift. You can still deploy the
+  webhook, but will need to generate and deploy the certificates yourself.
