@@ -38,7 +38,11 @@ func GetInstallerPodName(name, ns string, node *corev1.Node) string {
 
 	// K8s has a 63 char name limit for pods
 	if len(podname) > 62 {
-		return podname[:62]
+		podname = podname[:62]
+		// Remove trailing '-' if present
+		for podname[len(podname)-1:] == "-" {
+			podname = podname[:len(podname)-1]
+		}
 	}
 	return podname
 }
