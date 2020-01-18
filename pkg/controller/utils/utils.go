@@ -1,6 +1,8 @@
 package utils
 
 import (
+	hash "crypto/sha1"
+	"io"
 	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -30,21 +32,17 @@ func parseNodeName(name string) string {
 	return strings.ReplaceAll(name, ".", "-")
 }
 
+// GetInstallerPodName gets the name of the installer pod. Given that the pod names
+// can get pretty long, we hash the name so it fits in the space and is also
+// unique.
 func GetInstallerPodName(name, ns string, node *corev1.Node) string {
 	// policy-installer
-	namePrefix := "p-i"
 	parsedNodeName := parseNodeName(node.Name)
-	podname := namePrefix + "-" + GetPolicyK8sName(name, ns) + "-" + parsedNodeName
+	podname := GetPolicyK8sName(name, ns) + "-" + parsedNodeName
 
-	// K8s has a 63 char name limit for pods
-	if len(podname) > 62 {
-		podname = podname[:62]
-		// Remove trailing '-' if present
-		for podname[len(podname)-1:] == "-" {
-			podname = podname[:len(podname)-1]
-		}
-	}
-	return podname
+	hasher := hash.New()
+	io.WriteString(hasher, podname)
+	return string(hasher.Sum(nil))
 }
 
 func GetPolicyConfigMapName(name, ns string) string {
