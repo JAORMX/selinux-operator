@@ -2,6 +2,7 @@ package utils
 
 import (
 	hash "crypto/sha1"
+	"fmt"
 	"io"
 	"strings"
 
@@ -42,7 +43,7 @@ func GetInstallerPodName(name, ns string, node *corev1.Node) string {
 
 	hasher := hash.New()
 	io.WriteString(hasher, podname)
-	return string(hasher.Sum(nil))
+	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
 func GetPolicyConfigMapName(name, ns string) string {
