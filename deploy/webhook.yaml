@@ -6,6 +6,11 @@ metadata:
     service.beta.openshift.io/inject-cabundle: "true"
 webhooks:
 - name: "selinux-policy-in-pod-namespace.openshift.io"
+  namespaceSelector:
+    matchExpressions:
+    - key: openshift.io/run-level
+      operator: NotIn
+      values: ["0","1"]
   rules:
   - apiGroups:   [""]
     apiVersions: ["v1"]
