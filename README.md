@@ -38,12 +38,6 @@ Deploy operator
 oc create -f deploy/
 ```
 
-Deploy webhook
-
-```
-./scripts/create-webhookconfig.sh
-```
-
 Note
 ----
 
@@ -51,3 +45,11 @@ Note
   Kubernetes distributions (not only OpenShift). However, the webhook script
   relies on other operators that exist in OpenShift. You can still deploy the
   webhook, but will need to generate and deploy the certificates yourself.
+
+- The webhook gets is CA bundle automatically due to OpenShift's
+  service-ca-operator. If you're not using OpenShift, you'll need to set the
+  caBundle parameter in the webhook yourself. This functionality is available
+  since OpenShift 4.4.
+
+- If you're using OpenShift 4.3 and below, you'll need to use the script to
+  create webhooks which is in the `scripts` directory.
