@@ -38,6 +38,11 @@ Deploy operator
 oc create -f deploy/
 ```
 
+Demo
+----
+
+[![asciicast](https://asciinema.org/a/295371.svg)](https://asciinema.org/a/295371)
+
 Note
 ----
 
