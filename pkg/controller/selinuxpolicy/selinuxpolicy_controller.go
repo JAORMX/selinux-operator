@@ -89,9 +89,22 @@ func (r *ReconcileSelinuxPolicy) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, utils.IgnoreNotFound(err)
 	}
 
+	policyCopy := instance.DeepCopy()
+	if policyCopy.Status.State == "" {
+		policyCopy.Status.State = selinuxv1alpha1.PolicyStatePending
+		if err := r.client.Status().Update(context.TODO(), policyCopy); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// If "apply" is false, no need to do anything, let the deployer
 	// review it.
 	if !instance.Spec.Apply {
+		policyCopy := instance.DeepCopy()
+		policyCopy.Status.State = selinuxv1alpha1.PolicyStatePending
+		if err := r.client.Status().Update(context.TODO(), policyCopy); err != nil {
+			return reconcile.Result{}, err
+		}
 		return reconcile.Result{}, nil
 	}
 
@@ -166,7 +179,6 @@ func (r *ReconcileSelinuxPolicy) reconcileConfigMap(instance *selinuxv1alpha1.Se
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
-	logger.Info("Reconcile: ConfigMap already exists", "ConfigMap.Namespace", foundCM.Namespace, "ConfigMap.Name", foundCM.Name)
 	return reconcile.Result{}, nil
 }
 

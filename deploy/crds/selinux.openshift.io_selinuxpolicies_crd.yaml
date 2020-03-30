@@ -3,6 +3,13 @@ kind: CustomResourceDefinition
 metadata:
   name: selinuxpolicies.selinux.openshift.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.usage
+    name: Usage
+    type: string
+  - JSONPath: .status.state
+    name: State
+    type: string
   group: selinux.openshift.io
   names:
     kind: SelinuxPolicy
@@ -39,6 +46,10 @@ spec:
         status:
           description: SelinuxPolicyStatus defines the observed state of SelinuxPolicy
           properties:
+            state:
+              description: 'Represents the state that the policy is in. Can be: PENDING,
+                IN-PROGRESS, INSTALLED or ERROR'
+              type: string
             usage:
               description: Represents the string that the SelinuxPolicy object can
                 be referenced as in a pod seLinuxOptions section.

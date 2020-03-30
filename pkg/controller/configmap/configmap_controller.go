@@ -3,6 +3,7 @@ package configmap
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	selinuxv1alpha1 "github.com/JAORMX/selinux-operator/pkg/apis/selinux/v1alpha1"
 	"github.com/JAORMX/selinux-operator/pkg/controller/utils"
 )
 
@@ -79,7 +81,6 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 	if request.Namespace != utils.GetOperatorNamespace() {
 		return reconcile.Result{}, nil
 	}
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// Fetch the ConfigMap instance
 	cminstance := &corev1.ConfigMap{}
@@ -96,9 +97,24 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	reqLogger.Info("Reconciling ConfigMap")
+	reqLogger := log.WithValues("SelinuxPolicy.Name", policyName, "SelinuxPolicy.Namespace", policyNamespace)
+
+	policyObjKey := types.NamespacedName{Name: policyName, Namespace: policyNamespace}
+	policy := &selinuxv1alpha1.SelinuxPolicy{}
+	err = r.client.Get(context.TODO(), policyObjKey, policy)
+	if err != nil {
+		return reconcile.Result{}, utils.IgnoreNotFound(err)
+	}
+	policyCopy := policy.DeepCopy()
+
+	if policyCopy.Status.State == "" || policyCopy.Status.State == selinuxv1alpha1.PolicyStatePending {
+		policyCopy.Status.State = selinuxv1alpha1.PolicyStateInProgress
+		r.client.Status().Update(context.TODO(), policyCopy)
+	}
+	reqLogger.Info("Reconciling pods for policy")
 
 	nodesList := &corev1.NodeList{}
+	foundPods := []*corev1.Pod{}
 	err = r.client.List(context.TODO(), nodesList)
 	for _, node := range nodesList.Items {
 		// Define a new Pod object
@@ -118,15 +134,50 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 			}
 
 			// Pod created successfully - don't requeue
+			// TODO(jaosorior): Should I just continue running?
 			return reconcile.Result{}, nil
 		} else if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Pod already exists - don't requeue
-		reqLogger.Info("Reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+		foundPods = append(foundPods, found)
+	}
+
+	// Lets check the state of the pods now
+	for _, pod := range foundPods {
+		exitCode, found := r.getInstallerContainerExitCode(pod)
+		// Pod is still running - requeue
+		if !found {
+			reqLogger.Info("Pod still running", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		}
+		if exitCode != 0 {
+			reqLogger.Info("Pod failed", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name, "exit-code", exitCode)
+			policyCopy.Status.State = selinuxv1alpha1.PolicyStateError
+			if err := r.client.Status().Update(context.TODO(), policyCopy); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+	}
+	policyCopy.Status.State = selinuxv1alpha1.PolicyStateInstalled
+	if err := r.client.Status().Update(context.TODO(), policyCopy); err != nil {
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileConfigMap) getInstallerContainerExitCode(pod *corev1.Pod) (int32, bool) {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "policy-installer" {
+			if containerStatus.State.Terminated != nil {
+				termState := containerStatus.State.Terminated
+				return termState.ExitCode, true
+			}
+		}
+	}
+	return -1, false
 }
 
 // newPodForPolicy returns a busybox pod with the same name/namespace as the cr
@@ -146,12 +197,46 @@ func newPodForPolicy(name, ns string, node *corev1.Node) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				// This container needs to keep running so we can run the uninstall script.
-				corev1.Container{
+				{
 					Name:    "policy-installer",
 					Image:   "quay.io/jaosorior/udica",
 					Command: []string{"/bin/sh"},
-					Args:    []string{"-c", "semodule -vi /tmp/policy/*.cil /usr/share/udica/templates/*cil; while true; do sleep 30; done;"},
+					Args:    []string{"-c", "semodule -vi /tmp/policy/*.cil /usr/share/udica/templates/*cil;"},
+					Lifecycle: &corev1.Lifecycle{
+						PreStop: &corev1.Handler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"/bin/sh", "-c", fmt.Sprintf("semodule -vr '%s'", utils.GetPolicyName(name, ns))},
+							},
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Privileged: &trueVal,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "fsselinux",
+							MountPath: "/sys/fs/selinux",
+						},
+						corev1.VolumeMount{
+							Name:      "etcselinux",
+							MountPath: "/etc/selinux",
+						},
+						corev1.VolumeMount{
+							Name:      "varlibselinux",
+							MountPath: "/var/lib/selinux",
+						},
+						corev1.VolumeMount{
+							Name:      "policyvolume",
+							MountPath: "/tmp/policy",
+						},
+					},
+				},
+				// This container needs to keep running so we can run the uninstall script.
+				{
+					Name:    "policy-uninstaller",
+					Image:   "quay.io/jaosorior/udica",
+					Command: []string{"/bin/sh"},
+					Args:    []string{"-c", "while true; do sleep 30; done;"},
 					Lifecycle: &corev1.Lifecycle{
 						PreStop: &corev1.Handler{
 							Exec: &corev1.ExecAction{
