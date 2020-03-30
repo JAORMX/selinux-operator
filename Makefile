@@ -90,8 +90,7 @@ run: operator-sdk ## Run the selinux-operator locally
 	#WATCH_NAMESPACE=$(NAMESPACE) 
 	KUBERNETES_CONFIG=$(KUBECONFIG) \
 	OPERATOR_NAME=selinux-operator \
-	$(GOPATH)/bin/operator-sdk up local
-	#$(GOPATH)/bin/operator-sdk up local --namespace $(NAMESPACE)
+	$(GOPATH)/bin/operator-sdk run --local
 
 .PHONY: clean
 clean: clean-modcache clean-cache clean-output ## Clean the golang environment
