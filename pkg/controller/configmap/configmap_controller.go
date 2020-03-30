@@ -110,6 +110,8 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 	if policyCopy.Status.State == "" || policyCopy.Status.State == selinuxv1alpha1.PolicyStatePending {
 		policyCopy.Status.State = selinuxv1alpha1.PolicyStateInProgress
 		r.client.Status().Update(context.TODO(), policyCopy)
+		// Create another copy so we don't modify the cache
+		policyCopy = policy.DeepCopy()
 	}
 	reqLogger.Info("Reconciling pods for policy")
 
@@ -132,10 +134,6 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 			if err = r.client.Create(context.TODO(), pod); err != nil {
 				return reconcile.Result{}, utils.IgnoreAlreadyExists(err)
 			}
-
-			// Pod created successfully - don't requeue
-			// TODO(jaosorior): Should I just continue running?
-			return reconcile.Result{}, nil
 		} else if err != nil {
 			return reconcile.Result{}, err
 		}
