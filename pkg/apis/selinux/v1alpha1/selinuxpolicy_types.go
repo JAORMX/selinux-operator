@@ -40,6 +40,7 @@ type SelinuxPolicyStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=selinuxpolicies,scope=Namespaced
 // +kubebuilder:printcolumn:name="Usage",type="string",JSONPath=`.status.usage`
+// +kubebuilder:printcolumn:name="Apply",type="boolean",JSONPath=`.spec.apply`
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=`.status.state`
 type SelinuxPolicy struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -7,6 +7,9 @@ spec:
   - JSONPath: .status.usage
     name: Usage
     type: string
+  - JSONPath: .spec.apply
+    name: Apply
+    type: boolean
   - JSONPath: .status.state
     name: State
     type: string
